@@ -39,6 +39,7 @@ export const renderHeadlineLines = (
     el.style.top = `${gutter + line.y}px`
     el.style.font = font
     el.style.lineHeight = `${lineHeight}px`
+    el.style.visibility = 'visible'
   }
 }
 
@@ -56,6 +57,7 @@ export const renderBodyLines = (
     el.style.top = `${line.y}px`
     el.style.font = font
     el.style.lineHeight = `${lineHeight}px`
+    el.style.visibility = 'visible'
   }
 }
 
@@ -73,6 +75,7 @@ export const renderOrbs = (
     el.style.top = `${visualY - o.r}px`
     el.style.width = `${o.r * 2}px`
     el.style.height = `${o.r * 2}px`
+    el.style.visibility = 'visible'
     el.classList.toggle('paused', o.paused)
   }
 }

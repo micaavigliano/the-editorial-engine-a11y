@@ -124,6 +124,7 @@ main {
   position: absolute;
   white-space: pre;
   z-index: 1;
+  visibility: hidden;
   color: #e8e4dc;
 }
 
@@ -134,6 +135,7 @@ main {
   color: #fff;
   letter-spacing: -0.5px;
   z-index: 2;
+  visibility: hidden;
 }
 
 .drop-cap {
@@ -160,6 +162,7 @@ main {
   border: none;
   padding: 0;
   font: inherit;
+  visibility: hidden;
   color: inherit;
   appearance: none;
   -webkit-appearance: none;

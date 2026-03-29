@@ -159,6 +159,7 @@ The following WCAG 2.2 success criteria are relevant to this project:
 
 ## Tech stack
 
+- [Claude](https://claude.ai/) calculations, editing and README writing.
 - [React](https://react.dev/) 19
 - [TypeScript](https://www.typescriptlang.org/) 5.9
 - [Vite](https://vite.dev/) 8
