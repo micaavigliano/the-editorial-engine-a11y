@@ -2,10 +2,6 @@
 
 I took the [demo for a editorial engine](https://somnai-dreams.github.io/pretext-demos/the-editorial-engine.html) built with [pretext](https://github.com/chenglou/pretext) by Cheng Lou and I made it fully accessible, with semantic HTML structure, keyboard operability, screen reader support, and `prefers-reduced-motion` compliance. The result is a high-performance text layout demo that meets WCAG 2.2 success criteria while not compromising aesthetics and performance. The orbs are still draggable with the mouse but I also added the possibility of moving them using the keyboard.
 
-**Text**: Excerpts from *Cien anos de soledad* by Gabriel Garcia Marquez.
-
-**Built by**: [Mica Avigliano](https://github.com/micaavigliano)
-
 In this accessible version, the text is fully selectable and copyable. The visual text lines have `pointer-events` and `user-select` enabled, so users can click and drag to select text just like on any normal webpage. Additionally, a hidden element contains the full readable text in the DOM, ensuring that browser find-in-page works, search engine crawlers can index the content, and screen readers have access to a clean, linear reading experience independent of the visual layout.
 
 ### Pretext library usage
