@@ -14,7 +14,7 @@ export const Footer = ({ stats }: Props) => (
       <span className="stat-pair"><span className="stat-label">Columns</span> <span className="stat-value">{stats.cols}</span></span>
     </div>
     <nav aria-label="Credits" className="credits-nav">
-      <span>Built by <a href="https://github.com/micaavigliano" target="_blank" rel="noopener noreferrer">Mica Avigliano</a></span>
+      <span>Built by <a href="https://github.com/micaavigliano/the-editorial-engine-a11y" target="_blank" rel="noopener noreferrer">Mica Avigliano</a></span>
       <span className="credit-sep" aria-hidden="true"> · </span>
       <span>Text: <cite>Cien a&ntilde;os de soledad</cite> by Gabriel Garc&iacute;a M&aacute;rquez</span>
       <span className="credit-sep" aria-hidden="true"> · </span>
