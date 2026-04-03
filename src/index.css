@@ -151,9 +151,51 @@ body {
 }
 
 
+/* When pretext stage is active, hide article visually but keep it accessible */
+.article-text--behind-stage {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  column-count: unset;
+}
+
 main {
   position: relative;
   min-height: 100vh;
+}
+
+.stage {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  scroll-snap-align: start;
+}
+
+.line {
+  position: absolute;
+  white-space: pre;
+  z-index: 1;
+  visibility: hidden;
+  color: #e8e4dc;
+}
+
+.headline-line {
+  position: absolute;
+  white-space: pre;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.5px;
+  z-index: 2;
+  visibility: hidden;
+}
+
+.drop-cap {
+  position: absolute;
+  z-index: 2;
+  font-weight: 700;
+  color: #c4a35a;
 }
 
 

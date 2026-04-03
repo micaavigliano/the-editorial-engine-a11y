@@ -2,7 +2,7 @@
 
 I took the [demo for a editorial engine](https://somnai-dreams.github.io/pretext-demos/the-editorial-engine.html) built with [pretext](https://github.com/chenglou/pretext) by Cheng Lou and I made it fully accessible, with semantic HTML structure, keyboard operability, screen reader support, and `prefers-reduced-motion` compliance. The result is a high-performance text layout demo that meets WCAG 2.2 success criteria while not compromising aesthetics and performance. The orbs are still draggable with the mouse but I also added the possibility of moving them using the keyboard.
 
-The text content uses native HTML with CSS `column-count` for multi-column layout, ensuring text is always fully readable, selectable, and copyable at any zoom level. The browser handles reflow natively — no custom layout engine for the text means paragraphs are never cut or lost. A CSS `::first-letter` pseudo-element provides the drop cap effect. The orbs float as decorative overlays on top of the text.
+The app uses a **dual rendering system**. At normal zoom, pretext powers a visual stage where text lines are individually positioned and wrap dynamically around the orbs as circular obstacles. Underneath, a native HTML `<article>` with CSS `column-count` remains in the DOM for screen readers, copy/paste, and find-in-page. At high zoom (≥150%) or narrow viewports (<500px), the pretext stage is removed entirely and the native HTML article becomes the visible layout, ensuring text is always fully readable, selectable, and copyable. A pretext-rendered drop cap provides the decorative initial letter in the visual stage, while CSS `::first-letter` handles it in the native fallback.
 
 ### Pretext library usage
 
@@ -10,9 +10,9 @@ Pretext powers the orb animation system. The following APIs are available in the
 
 | API | Purpose | Where used |
 |-----|---------|------------|
-| `prepareWithSegments()` | Measures and caches word widths for text blocks | Text preparation utilities |
-| `layoutNextLine()` | Lays out one line of text at a given max width | Layout engine (available for custom layouts) |
-| `layoutWithLines()` | Lays out all lines of a prepared text block | Headline fitting utilities |
+| `prepareWithSegments()` | Measures and caches word widths for text blocks | Body text preparation on font load |
+| `layoutNextLine()` | Lays out one line of text at a given max width | Core layout loop — wraps text around orb obstacles |
+| `layoutWithLines()` | Lays out all lines of a prepared text block | Headline fitting to available width/height |
 | `walkLineRanges()` | Iterates line ranges without allocating line objects | Text measurement utilities |
 
 ## Accessibility improvements
@@ -25,7 +25,7 @@ The app uses proper HTML5 landmarks and semantic elements:
 - `<main>`: Primary content area
 - `<article lang="es">`: Full readable text as native HTML — visible, selectable, and copyable
 - `<section>`: Orb container with descriptive `aria-label`
-- `<footer>`: Performance stats and credits
+- `<footer>`: Performance stats (line count, reflow time, FPS, column count) and credits
 - `<kbd>`: Keyboard shortcuts styled as physical keycaps (with `aria-hidden` to prevent double announcement; sr-only spans provide the text)
 - `<cite>`: Book title attribution
 - `<nav>`: Keyboard shortcuts section and credits navigation
@@ -80,39 +80,47 @@ When the user's OS or browser has reduced motion enabled:
 
 ## Text content and layout
 
-The article text (excerpts from *Cien años de soledad*) is rendered as native HTML inside an `<article>` element with CSS multi-column layout:
+### Dual rendering: pretext stage + native HTML
 
-| Viewport | Columns |
+The app maintains two representations of the article text simultaneously:
+
+1. **Pretext visual stage** (`aria-hidden="true"`): Each line is an absolutely positioned `<div>` laid out by pretext's `layoutNextLine()`. Lines wrap dynamically around orbs, which are treated as circular obstacles. A drop cap is rendered as a separate positioned element. The stage container's height is computed from the lowest line position.
+
+2. **Native HTML article**: A standard `<article lang="es">` with `<p>` elements and CSS `column-count`. This is always in the DOM for screen readers, clipboard, and find-in-page. When the pretext stage is active, the article is visually hidden using `position: absolute; left: -9999px` (not `display: none`, so assistive tech still reads it).
+
+At high zoom (≥150%) or narrow viewports (<500px), the pretext stage is unmounted from the DOM and the native HTML article becomes the visible layout. This is controlled by a `useNativeLayout` state derived from `window.outerWidth / window.innerWidth`.
+
+| Viewport | Columns (both modes) |
 |----------|---------|
 | > 1000px | 3 columns |
 | 641-1000px | 2 columns |
 | ≤ 640px | 1 column |
 
-### Why native HTML over a custom layout engine
+### Text wrapping around orbs
 
-The original demo used a canvas-based layout engine with absolutely positioned `<div>` elements per line. This approach caused:
+In the pretext stage, each orb's position and radius are converted to a circular obstacle via `orbToObstacle()`. The layout engine (`layoutAllText()`) feeds these obstacles to `layoutNextLine()`, which shortens or shifts lines to flow around the orbs in real time as they move.
 
-- **Cut paragraphs**: Text was truncated at page boundaries in multi-column mode
-- **Lost content**: Information was omitted at column breaks, especially at high zoom
-- **Uncopyable text**: Each line was a separate positioned element, making text selection impractical
-- **Reflow failures**: The custom math broke at 200%+ zoom and narrow viewports
+### Headline fitting
 
-The native HTML approach solves all of these:
+The headline is dynamically sized using `fitHeadline()`, which uses pretext's `layoutWithLines()` to find the largest font size that fits the headline within the available width and a max height (35% of viewport, or 20% on short screens). Each headline line is rendered as a separate absolutely positioned element.
 
-- **No cut text**: The browser handles line wrapping and column breaks natively
-- **Fully copyable**: Standard text selection works across paragraphs
-- **Perfect reflow**: CSS `column-count` adapts to any viewport width or zoom level
-- **Drop cap**: CSS `::first-letter` provides the decorative initial without JavaScript
+### Drop cap
+
+In the pretext stage, the first character of the first paragraph is rendered as a positioned `<div>` spanning 3 body lines in height. The layout engine reserves a rectangular region for the drop cap and flows the first paragraph's text around it. In native mode, CSS `::first-letter` provides the same effect.
 
 ### Dynamic header clearance
 
-The article's `padding-top` uses a CSS custom property `--header-h` set by a `ResizeObserver` on the fixed header. This ensures content is never hidden behind the header at any zoom level or viewport size, since the header height varies (it stacks vertically on mobile/high zoom).
+The article's `padding-top` uses a CSS custom property `--header-h` set by a `ResizeObserver` on the fixed header. In the pretext stage, the top gutter is computed as `Math.max(GUTTER, headerHeight + 8)`. This ensures content is never hidden behind the header at any zoom level or viewport size.
 
 ## Mobile and responsive behavior
 
-### Orbs hidden on small screens and high zoom
+### Orbs and pretext stage hidden on small screens and high zoom
 
-When the viewport width is below 500px or the browser zoom level reaches 150% or higher, the orbs are completely removed from the DOM. This is not a CSS `display: none`. The React component conditionally unmounts the entire orb `<section>`.
+When the viewport width is below 500px or the browser zoom level reaches 150% or higher:
+
+- The orbs are completely removed from the DOM (not CSS `display: none` — React conditionally unmounts the entire orb `<section>`)
+- The pretext visual stage is also unmounted, and the native HTML article becomes the visible layout
+- The `useNativeLayout` flag prevents the `renderFrame` loop from running pretext layout calculations
 
 Zoom detection uses `window.outerWidth / window.innerWidth`. When the user zooms the browser, `innerWidth` shrinks while `outerWidth` stays constant, giving the actual zoom ratio.
 
