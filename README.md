@@ -49,7 +49,7 @@ Every interactive element is operable without a mouse:
 | Move focused orb | `Arrow keys` | `Option + Arrow keys` |
 | Pause/resume individual orb | `Space` | `Space` |
 
-Orbs are `<button>` elements with `role="application"`, which tells VoiceOver to pass arrow keys through to JavaScript instead of consuming them for SR navigation. The `aria-roledescription="draggable orb"` provides a clear role announcement. Each orb's `aria-label` dynamically updates to reflect its pause state: "Press Space to pause" when moving, "Press Space to resume" when paused.
+Orbs are `<button>` elements, which tells VoiceOver to pass arrow keys through to JavaScript instead of consuming them for SR navigation. The `aria-roledescription="draggable orb"` provides a clear role announcement. Each orb's `aria-label` dynamically updates to reflect its pause state: "Press Space to pause" when moving, "Press Space to resume" when paused.
 
 ### Screen reader orb interaction discovery
 
@@ -152,19 +152,6 @@ html {
 
 - Under `prefers-reduced-motion: reduce`, both `scroll-snap-type` and `scroll-behavior: smooth` are disabled entirely, falling back to native browser scroll
 - Keyboard scroll (`Space`, `Page Down`, `Arrow keys`) works normally. The snap behavior only engages when the scroll naturally lands near a snap point
-
-### Why native CSS over JavaScript scroll-jacking
-
-JavaScript-based scroll-jacking (`wheel` event interception, `scrollTo()` calls) breaks:
-
-- Screen reader virtual cursor navigation
-- Browser find-in-page (`Ctrl+F`) scroll behavior
-- Browser back/forward scroll position restoration
-- Keyboard scrolling expectations
-- Touch momentum on mobile
-- Zoom-triggered scroll on magnification tools
-
-CSS `scroll-snap-type` avoids all of these because the browser handles snapping natively, after the scroll has already completed.
 
 ## WCAG success criteria
 
