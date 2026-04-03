@@ -2,18 +2,18 @@
 
 I took the [demo for a editorial engine](https://somnai-dreams.github.io/pretext-demos/the-editorial-engine.html) built with [pretext](https://github.com/chenglou/pretext) by Cheng Lou and I made it fully accessible, with semantic HTML structure, keyboard operability, screen reader support, and `prefers-reduced-motion` compliance. The result is a high-performance text layout demo that meets WCAG 2.2 success criteria while not compromising aesthetics and performance. The orbs are still draggable with the mouse but I also added the possibility of moving them using the keyboard.
 
-In this accessible version, the text is fully selectable and copyable. The visual text lines have `pointer-events` and `user-select` enabled, so users can click and drag to select text just like on any normal webpage. Additionally, a hidden element contains the full readable text in the DOM, ensuring that browser find-in-page works, search engine crawlers can index the content, and screen readers have access to a clean, linear reading experience independent of the visual layout.
+The text content uses native HTML with CSS `column-count` for multi-column layout, ensuring text is always fully readable, selectable, and copyable at any zoom level. The browser handles reflow natively — no custom layout engine for the text means paragraphs are never cut or lost. A CSS `::first-letter` pseudo-element provides the drop cap effect. The orbs float as decorative overlays on top of the text.
 
 ### Pretext library usage
 
-Pretext powers the core of the layout engine. The following APIs are used:
+Pretext powers the orb animation system. The following APIs are available in the project:
 
 | API | Purpose | Where used |
 |-----|---------|------------|
-| `prepareWithSegments()` | Measures and caches word widths for each paragraph | Text preparation on font load |
-| `layoutNextLine()` | Lays out one line of text at a given max width | Column layout engine, called per line, per slot |
-| `layoutWithLines()` | Lays out all lines of a prepared text block | Headline fitting |
-| `walkLineRanges()` | Iterates line ranges without allocating line objects | Headline binary search, drop cap width |
+| `prepareWithSegments()` | Measures and caches word widths for text blocks | Text preparation utilities |
+| `layoutNextLine()` | Lays out one line of text at a given max width | Layout engine (available for custom layouts) |
+| `layoutWithLines()` | Lays out all lines of a prepared text block | Headline fitting utilities |
+| `walkLineRanges()` | Iterates line ranges without allocating line objects | Text measurement utilities |
 
 ## Accessibility improvements
 
@@ -23,7 +23,7 @@ The app uses proper HTML5 landmarks and semantic elements:
 
 - `<header>`: Fixed bar with controls and interaction hints
 - `<main>`: Primary content area
-- `<div role="region" lang="es">`: Full readable text accessible to screen readers, crawlers, and find-in-page
+- `<article lang="es">`: Full readable text as native HTML — visible, selectable, and copyable
 - `<section>`: Orb container with descriptive `aria-label`
 - `<footer>`: Performance stats and credits
 - `<kbd>`: Keyboard shortcuts styled as physical keycaps (with `aria-hidden` to prevent double announcement; sr-only spans provide the text)
@@ -34,7 +34,7 @@ The app uses proper HTML5 landmarks and semantic elements:
 
 1. **Users with disabilities**: Screen readers use landmarks (`<header>`, `<main>`, `<footer>`) for navigation. A screen reader user can press a single key to jump between landmarks rather than tabbing through every element. `lang="es"` on the text region tells the screen reader to switch to Spanish pronunciation.
 
-2. **Search engine crawlers**: Crawlers rely on semantic structure to understand content hierarchy. `<h1>` establishes the page topic. `<cite>` identifies referenced works. Content hidden with `display: none` or `visibility: hidden` is ignored by crawlers, but content positioned off-screen (`left: -9999px`) remains indexable. This is why the readable text uses positional hiding rather than display hiding.
+2. **Search engine crawlers**: Crawlers rely on semantic structure to understand content hierarchy. `<h1>` establishes the page topic. `<cite>` identifies referenced works. Native visible HTML means all content is indexable without workarounds.
 
 3. **AI systems and LLMs**: AI agents parsing web content use the same semantic signals as crawlers. Landmark roles, heading hierarchy, and structured elements allow AI to extract meaning without relying on visual layout.
 
@@ -68,7 +68,6 @@ When the orb is paused, the label changes to: "Press Space to resume.", so the u
 When the user's OS or browser has reduced motion enabled:
 
 - All orb animation stops, orbs render at their initial positions, static
-- Text reflows once and stays put
 - CSS `scroll-snap-type` and `scroll-behavior: smooth` are disabled
 - CSS transitions and animations are suppressed globally via `animation-duration: 0.01ms !important`
 - A toggle button allows users to override this preference in-app
@@ -79,15 +78,37 @@ When the user's OS or browser has reduced motion enabled:
 - **Individual pause** (click or `Space` on a focused orb): Only that orb stops. Other orbs keep moving. This allows users to control exactly which elements are in motion.
 - The global pause button reflects the aggregate state. If all orbs are individually paused, it shows "Play"; if all are moving, it shows "Pause".
 
+## Text content and layout
+
+The article text (excerpts from *Cien años de soledad*) is rendered as native HTML inside an `<article>` element with CSS multi-column layout:
+
+| Viewport | Columns |
+|----------|---------|
+| > 1000px | 3 columns |
+| 641-1000px | 2 columns |
+| ≤ 640px | 1 column |
+
+### Why native HTML over a custom layout engine
+
+The original demo used a canvas-based layout engine with absolutely positioned `<div>` elements per line. This approach caused:
+
+- **Cut paragraphs**: Text was truncated at page boundaries in multi-column mode
+- **Lost content**: Information was omitted at column breaks, especially at high zoom
+- **Uncopyable text**: Each line was a separate positioned element, making text selection impractical
+- **Reflow failures**: The custom math broke at 200%+ zoom and narrow viewports
+
+The native HTML approach solves all of these:
+
+- **No cut text**: The browser handles line wrapping and column breaks natively
+- **Fully copyable**: Standard text selection works across paragraphs
+- **Perfect reflow**: CSS `column-count` adapts to any viewport width or zoom level
+- **Drop cap**: CSS `::first-letter` provides the decorative initial without JavaScript
+
+### Dynamic header clearance
+
+The article's `padding-top` uses a CSS custom property `--header-h` set by a `ResizeObserver` on the fixed header. This ensures content is never hidden behind the header at any zoom level or viewport size, since the header height varies (it stacks vertically on mobile/high zoom).
+
 ## Mobile and responsive behavior
-
-The layout adapts to screen size:
-
-| Viewport | Columns | Orbs |
-|----------|---------|------|
-| > 1000px | 3 columns | Visible, full size |
-| 641-1000px | 2 columns | Visible, full size |
-| < 640px | 1 column | Hidden |
 
 ### Orbs hidden on small screens and high zoom
 
@@ -95,13 +116,26 @@ When the viewport width is below 500px or the browser zoom level reaches 150% or
 
 Zoom detection uses `window.outerWidth / window.innerWidth`. When the user zooms the browser, `innerWidth` shrinks while `outerWidth` stays constant, giving the actual zoom ratio.
 
+### Collapsible header at high zoom
+
+At 200%+ zoom or viewports below 500px, the header switches to a compact mode: all controls and keyboard shortcuts collapse behind a single toggle. This prevents the fixed header from consuming a large portion of the viewport at high magnification.
+
+The toggle uses a native `<details>`/`<summary>` element, which provides built-in accessibility:
+
+- **Keyboard operable**: `Enter` or `Space` toggles open/closed — no JavaScript event handling needed
+- **Screen reader state**: Browsers announce "collapsed"/"expanded" automatically, no `aria-expanded` attribute required
+- **Tab order**: Content inside is focusable when expanded and removed from the tab order when collapsed
+- **No ARIA needed**: The semantics are built into the HTML element itself
+
+A `ResizeObserver` on the header keeps the `--header-h` CSS custom property updated as the header expands or collapses, so the article content always clears it without overlap.
+
 ### Mobile header and footer
 
 On screens below 640px:
-- The header stacks vertically (controls on top, hints below)
+- The header collapses to a single toggle (same `<details>`/`<summary>` mechanism as high zoom)
 - The footer stacks vertically (stats centered, credits below)
 - Button text and hint font sizes reduce for touch targets
-- The full text remains accessible for copy/paste and screen readers
+- Text reflows to a single readable column
 
 ## CSS `scroll-snap-type` and user experience
 
@@ -117,7 +151,6 @@ html {
 ### Accessibility behavior
 
 - Under `prefers-reduced-motion: reduce`, both `scroll-snap-type` and `scroll-behavior: smooth` are disabled entirely, falling back to native browser scroll
-- The snap targets are the text "pages" (each viewport-height section of columns), creating a magazine-like reading experience
 - Keyboard scroll (`Space`, `Page Down`, `Arrow keys`) works normally. The snap behavior only engages when the scroll naturally lands near a snap point
 
 ### Why native CSS over JavaScript scroll-jacking
@@ -144,8 +177,8 @@ The following WCAG 2.2 success criteria are relevant to this project:
 | 1.3.4 Orientation | AA | Pass | Layout adapts to portrait and landscape |
 | 1.4.1 Use of Color | A | Pass | Pause state uses opacity + SR announcement, not color alone |
 | 1.4.3 Contrast (Minimum) | AA | Pass | All text meets 4.5:1 ratio |
-| 1.4.4 Resize Text | AA | Pass | Text reflows at 200% zoom; orbs removed at 150%+ to prevent obstruction |
-| 1.4.10 Reflow | AA | Pass | Single column at narrow viewports, no horizontal scroll |
+| 1.4.4 Resize Text | AA | Pass | Native HTML reflows at 200% zoom; orbs removed at 150%+ to prevent obstruction |
+| 1.4.10 Reflow | AA | Pass | CSS columns reflow to single column at 320px width, no horizontal scroll |
 | 1.4.11 Non-text Contrast | AA | Pass | Focus indicators meet 3:1 against adjacent colors |
 | 2.1.1 Keyboard | A | Pass | All functionality available via keyboard |
 | 2.1.2 No Keyboard Trap | A | Pass | `scroll-snap-type: proximity` (not `mandatory`), no focus traps |

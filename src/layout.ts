@@ -108,10 +108,10 @@ export const fitHeadline = (text: string, fontFamily: string, maxWidth: number, 
   return { fontSize: best, lines: bestLines }
 }
 
-type PageLayoutConfig = {
+export type LayoutConfig = {
   preparedParagraphs: PreparedTextWithSegments[]
   bodyTop: number
-  pageHeight: number
+  rowHeight: number
   colCount: number
   colWidth: number
   contentLeft: number
@@ -120,55 +120,83 @@ type PageLayoutConfig = {
   paragraphGap: number
   circleObs: CircleObs[]
   dropCapRect: { x: number; y: number; w: number; h: number }
-  gutter: number
 }
 
-export const layoutPages = (config: PageLayoutConfig): TextLine[] => {
+// Fill a single column top-to-bottom, flowing across paragraph boundaries.
+// Returns updated paraIndex/cursor so the next column continues seamlessly.
+const fillColumn = (
+  config: LayoutConfig,
+  colX: number,
+  rowTop: number,
+  rowBottom: number,
+  paraIndex: number,
+  cursor: LayoutCursor,
+  isFirstColumn: boolean,
+): { lines: TextLine[]; paraIndex: number; cursor: LayoutCursor; allDone: boolean } => {
+  const { preparedParagraphs, bodyTop, lineHeight, paragraphGap, circleObs, dropCapRect } = config
+  const lines: TextLine[] = []
+  let lineTop = rowTop
+
+  while (lineTop + lineHeight <= rowBottom && paraIndex < preparedParagraphs.length) {
+    const prepared = preparedParagraphs[paraIndex]
+    const rects = (paraIndex === 0 && isFirstColumn && lineTop < bodyTop + dropCapRect.h)
+      ? [dropCapRect] : []
+    const blocked = getBlockedIntervals(lineTop, lineTop + lineHeight, circleObs, rects)
+    const slots = carveTextLineSlots({ left: colX, right: colX + config.colWidth }, blocked)
+      .toSorted((a, b) => a.left - b.left)
+
+    if (slots.length === 0) {
+      lineTop += lineHeight
+      continue
+    }
+
+    let paragraphDone = false
+    for (const slot of slots) {
+      const line = layoutNextLine(prepared, cursor, slot.right - slot.left)
+      if (!line) { paragraphDone = true; break }
+      lines.push({ x: Math.round(slot.left), y: Math.round(lineTop), text: line.text, width: line.width })
+      cursor = line.end
+    }
+
+    if (paragraphDone) {
+      paraIndex++
+      cursor = { segmentIndex: 0, graphemeIndex: 0 }
+      lineTop += lineHeight + paragraphGap
+    } else {
+      lineTop += lineHeight
+    }
+  }
+
+  return { lines, paraIndex, cursor, allDone: paraIndex >= preparedParagraphs.length }
+}
+
+export const layoutAllText = (config: LayoutConfig): TextLine[] => {
   const {
-    preparedParagraphs, bodyTop, pageHeight, colCount, colWidth,
-    contentLeft, colGap, lineHeight, paragraphGap, circleObs,
-    dropCapRect, gutter,
+    preparedParagraphs, bodyTop, rowHeight, colCount, contentLeft,
+    colGap, colWidth,
   } = config
 
   const allLines: TextLine[] = []
   let paraIndex = 0
-  let cursor: LayoutCursor = { segmentIndex: 0, graphemeIndex: 1 }
-  let pageNum = 0
+  let cursor: LayoutCursor = { segmentIndex: 0, graphemeIndex: 1 } // skip drop cap
+  let rowTop = bodyTop
 
   while (paraIndex < preparedParagraphs.length) {
-    const pageTop = bodyTop + pageNum * (pageHeight + gutter)
-    let pageHadContent = false
+    const rowBottom = rowTop + rowHeight
 
     for (let col = 0; col < colCount; col++) {
+      if (paraIndex >= preparedParagraphs.length) break
       const colX = contentLeft + col * (colWidth + colGap)
-      let lineTop = pageTop
+      const isFirstColumn = rowTop === bodyTop && col === 0
 
-      while (paraIndex < preparedParagraphs.length && lineTop + lineHeight <= pageTop + pageHeight) {
-        const prepared = preparedParagraphs[paraIndex]
-        const rects = (pageNum === 0 && col === 0 && paraIndex === 0) ? [dropCapRect] : []
-
-        const result = layoutColumnAt(
-          prepared, cursor, colX, lineTop, colWidth,
-          pageTop + pageHeight - lineTop, lineHeight,
-          circleObs, rects,
-        )
-        allLines.push(...result.lines)
-        pageHadContent = true
-
-        if (result.textExhausted) {
-          const lastLineY = result.lines.at(-1)?.y ?? lineTop
-          lineTop = lastLineY + lineHeight + paragraphGap
-          paraIndex++
-          cursor = { segmentIndex: 0, graphemeIndex: 0 }
-        } else {
-          cursor = result.cursor
-          break
-        }
-      }
+      const result = fillColumn(config, colX, rowTop, rowBottom, paraIndex, cursor, isFirstColumn)
+      allLines.push(...result.lines)
+      paraIndex = result.paraIndex
+      cursor = result.cursor
+      if (result.allDone) break
     }
 
-    if (paraIndex >= preparedParagraphs.length || !pageHadContent) break
-    pageNum++
+    rowTop = rowBottom // seamless — next row starts where this one ends
   }
 
   return allLines

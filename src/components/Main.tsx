@@ -3,8 +3,6 @@ import type { OrbDef, Orb } from '../types'
 
 type Props = {
   headlineText: string
-  stageRef: React.RefObject<HTMLDivElement | null>
-  dropCapElRef: React.RefObject<HTMLDivElement | null>
   orbDefs: OrbDef[]
   orbElsRef: React.RefObject<(HTMLButtonElement | null)[]>
   orbs: Orb[]
@@ -23,20 +21,19 @@ const orbLabel = (def: OrbDef, i: number, total: number, paused: boolean) =>
   (paused ? 'Press Space to resume.' : 'Press Space to pause.')
 
 export const Main = ({
-  headlineText, stageRef, dropCapElRef, orbDefs, orbElsRef, orbs, orbsHidden,
-  liveMessage, onOrbPointerDown, onOrbPointerMove, onOrbPointerUp, onOrbKeyDown, onOrbFocus,
+  headlineText, orbDefs, orbElsRef, orbs, orbsHidden,
+  liveMessage, onOrbPointerDown, onOrbPointerMove, onOrbPointerUp,
+  onOrbKeyDown, onOrbFocus,
 }: Props) => (
   <main>
     <div aria-live="polite" aria-atomic="true" className="sr-only">{liveMessage}</div>
 
-    <div className="readable-text" lang="es" role="region" aria-label="Article text">
-      <h1>{headlineText}</h1>
-      {PARAGRAPHS.map((p, i) => <p key={i}>{p}</p>)}
-    </div>
-
-    <div ref={stageRef} className="stage" aria-hidden="true">
-      <div ref={dropCapElRef} className="drop-cap" />
-    </div>
+    <article className="article-text" lang="es" aria-labelledby="headline">
+      <h1 id="headline">{headlineText}</h1>
+      {PARAGRAPHS.map((p, i) => (
+        <p key={i} className={i === 0 ? 'drop-cap-paragraph' : undefined}>{p}</p>
+      ))}
+    </article>
 
     {!orbsHidden && (
       <section aria-label={`${orbDefs.length} draggable orbs`} className="orb-container">

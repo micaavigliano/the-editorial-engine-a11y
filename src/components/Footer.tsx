@@ -1,11 +1,12 @@
+import { forwardRef } from 'react'
 import type { Stats } from '../types'
 
 type Props = {
   stats: Stats
 }
 
-export const Footer = ({ stats }: Props) => (
-  <footer className="stats-bar">
+export const Footer = forwardRef<HTMLElement, Props>(({ stats }, ref) => (
+  <footer ref={ref} className="stats-bar">
     <div className="stats-list" aria-label="Performance stats">
       <span className="stat-pair"><span className="stat-label">Lines</span> <span className="stat-value">{stats.lines}</span></span>
       <span className="stat-pair"><span className="stat-label">Reflow</span> <span className="stat-value">{stats.reflow}ms</span></span>
@@ -21,4 +22,4 @@ export const Footer = ({ stats }: Props) => (
       <span>Powered by <a href="https://github.com/chenglou/pretext" target="_blank" rel="noopener noreferrer">pretext</a> by Cheng Lou</span>
     </nav>
   </footer>
-)
+))
