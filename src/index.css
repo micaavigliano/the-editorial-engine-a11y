@@ -257,11 +257,13 @@ main {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 16px;
+  padding: 10px 16px;
   font: 600 13px/1.4 var(--font-body);
-  color: rgba(255, 255, 255, 0.75);
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.04);
   cursor: pointer;
   list-style: none;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .header-toggle::-webkit-details-marker {
@@ -277,12 +279,22 @@ main {
   transition: transform 0.15s ease;
 }
 
+details[open] > .header-toggle {
+  background: rgba(255, 255, 255, 0.06);
+}
+
 details[open] > .header-toggle .header-toggle-icon {
   transform: rotate(90deg);
 }
 
 .header-toggle:hover {
-  color: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.header-toggle:focus-visible {
+  outline: 2px solid #c4a35a;
+  outline-offset: -2px;
 }
 
 .header-collapse-content {

@@ -23,20 +23,12 @@ The app uses proper HTML5 landmarks and semantic elements:
 
 - `<header>`: Fixed bar with controls and interaction hints
 - `<main>`: Primary content area
-- `<article lang="es">`: Full readable text as native HTML — visible, selectable, and copyable
-- `<section>`: Orb container with descriptive `aria-label`
-- `<footer>`: Performance stats (line count, reflow time, FPS, column count) and credits
-- `<kbd>`: Keyboard shortcuts styled as physical keycaps (with `aria-hidden` to prevent double announcement; sr-only spans provide the text)
+- `<article lang="es">`: Full readable text as native HTML; `lang="es"` switches screen readers to Spanish pronunciation
+- `<section>`: Orb container with descriptive `aria-label`, exposed as a named region
+- `<footer>`: Performance stats and credits
+- `<kbd>`: Keyboard shortcuts styled as keycaps. `aria-hidden` prevents SR double-announcement; `sr-only` siblings provide the readable text
 - `<cite>`: Book title attribution
-- `<nav>`: Keyboard shortcuts section and credits navigation
-
-#### Why correct HTML semantics matter
-
-1. **Users with disabilities**: Screen readers use landmarks (`<header>`, `<main>`, `<footer>`) for navigation. A screen reader user can press a single key to jump between landmarks rather than tabbing through every element. `lang="es"` on the text region tells the screen reader to switch to Spanish pronunciation.
-
-2. **Search engine crawlers**: Crawlers rely on semantic structure to understand content hierarchy. `<h1>` establishes the page topic. `<cite>` identifies referenced works. Native visible HTML means all content is indexable without workarounds.
-
-3. **AI systems and LLMs**: AI agents parsing web content use the same semantic signals as crawlers. Landmark roles, heading hierarchy, and structured elements allow AI to extract meaning without relying on visual layout.
+- `<nav>`: Keyboard shortcuts and credits navigation
 
 ### Keyboard accessibility
 
@@ -49,13 +41,11 @@ Every interactive element is operable without a mouse:
 | Move focused orb | `Arrow keys` | `Option + Arrow keys` |
 | Pause/resume individual orb | `Space` | `Space` |
 
-Orbs are `<button>` elements, which tells VoiceOver to pass arrow keys through to JavaScript instead of consuming them for SR navigation. The `aria-roledescription="draggable orb"` provides a clear role announcement. Each orb's `aria-label` dynamically updates to reflect its pause state: "Press Space to pause" when moving, "Press Space to resume" when paused.
+Orbs are native `<button>` elements. `aria-roledescription="draggable orb"` augments the role announcement so the user understands these are not ordinary buttons. Each orb's `aria-label` is dynamic and encodes its position in the set, the available interactions, and its current pause state.
 
 ### Screen reader orb interaction discovery
 
-When a VoiceOver user tabs to an orb, they hear: "Golden orb, 1 of 5. Use Option plus arrow keys to move. Press Space to pause." This instruction is critical because VoiceOver normally captures arrow keys for its own navigation. The `role="application"` on each orb button switches VoiceOver into a pass-through mode where arrow keys go directly to the page's JavaScript, enabling orb movement.
-
-When the orb is paused, the label changes to: "Press Space to resume.", so the user always knows the current action available without guessing.
+When a VoiceOver user tabs to an orb, they hear: "Golden orb, 1 of 5. Use Option plus arrow keys to move. Press Space to pause." The instruction lives inside the `aria-label` because VoiceOver captures plain arrow keys for its own navigation; the page tells the user which key combination it *can* receive (`Option + Arrow`) instead of attempting to override the screen reader. When the orb is paused, the label changes to "Press Space to resume."
 
 ### Screen reader support
 
@@ -82,13 +72,11 @@ When the user's OS or browser has reduced motion enabled:
 
 ### Dual rendering: pretext stage + native HTML
 
-The app maintains two representations of the article text simultaneously:
+Implementation details behind the dual layout described above:
 
-1. **Pretext visual stage** (`aria-hidden="true"`): Each line is an absolutely positioned `<div>` laid out by pretext's `layoutNextLine()`. Lines wrap dynamically around orbs, which are treated as circular obstacles. A drop cap is rendered as a separate positioned element. The stage container's height is computed from the lowest line position.
-
-2. **Native HTML article**: A standard `<article lang="es">` with `<p>` elements and CSS `column-count`. This is always in the DOM for screen readers, clipboard, and find-in-page. When the pretext stage is active, the article is visually hidden using `position: absolute; left: -9999px` (not `display: none`, so assistive tech still reads it).
-
-At high zoom (≥150%) or narrow viewports (<500px), the pretext stage is unmounted from the DOM and the native HTML article becomes the visible layout. This is controlled by a `useNativeLayout` state derived from `window.outerWidth / window.innerWidth`.
+- **Pretext visual stage** (`aria-hidden="true"`): Each line is an absolutely positioned `<div>` laid out by `layoutNextLine()`, wrapping around orbs as circular obstacles. The stage's height is computed from the lowest line position.
+- **Native HTML article**: When the pretext stage is active, the `<article lang="es">` is visually hidden with `position: absolute; left: -9999px` (not `display: none`, so AT still reads it).
+- A `useNativeLayout` state derived from `window.outerWidth / window.innerWidth` decides which mode is active.
 
 | Viewport | Columns (both modes) |
 |----------|---------|
@@ -116,26 +104,15 @@ The article's `padding-top` uses a CSS custom property `--header-h` set by a `Re
 
 ### Orbs and pretext stage hidden on small screens and high zoom
 
-When the viewport width is below 500px or the browser zoom level reaches 150% or higher:
+At the 500px / 150%-zoom threshold, React conditionally unmounts the orb `<section>` and the pretext stage entirely (not `display: none`), and `useNativeLayout` also halts the `renderFrame` loop so no layout work runs in the background.
 
-- The orbs are completely removed from the DOM (not CSS `display: none` — React conditionally unmounts the entire orb `<section>`)
-- The pretext visual stage is also unmounted, and the native HTML article becomes the visible layout
-- The `useNativeLayout` flag prevents the `renderFrame` loop from running pretext layout calculations
-
-Zoom detection uses `window.outerWidth / window.innerWidth`. When the user zooms the browser, `innerWidth` shrinks while `outerWidth` stays constant, giving the actual zoom ratio.
+Zoom detection uses `window.outerWidth / window.innerWidth`: when the user zooms in, `innerWidth` shrinks while `outerWidth` stays constant, giving the actual zoom ratio.
 
 ### Collapsible header at high zoom
 
-At 200%+ zoom or viewports below 500px, the header switches to a compact mode: all controls and keyboard shortcuts collapse behind a single toggle. This prevents the fixed header from consuming a large portion of the viewport at high magnification.
+At 200%+ zoom or viewports below 500px, the header switches to a compact mode where all controls and keyboard shortcuts collapse behind a native `<details>`/`<summary>` toggle, preventing the fixed header from consuming the viewport at high magnification.
 
-The toggle uses a native `<details>`/`<summary>` element, which provides built-in accessibility:
-
-- **Keyboard operable**: `Enter` or `Space` toggles open/closed — no JavaScript event handling needed
-- **Screen reader state**: Browsers announce "collapsed"/"expanded" automatically, no `aria-expanded` attribute required
-- **Tab order**: Content inside is focusable when expanded and removed from the tab order when collapsed
-- **No ARIA needed**: The semantics are built into the HTML element itself
-
-A `ResizeObserver` on the header keeps the `--header-h` CSS custom property updated as the header expands or collapses, so the article content always clears it without overlap.
+A `ResizeObserver` on the header keeps the `--header-h` CSS custom property in sync as it expands or collapses, so article content always clears it without overlap.
 
 ### Mobile header and footer
 
@@ -145,25 +122,11 @@ On screens below 640px:
 - Button text and hint font sizes reduce for touch targets
 - Text reflows to a single readable column
 
-## CSS `scroll-snap-type` and user experience
+## Scroll snapping
 
-The app uses native CSS scroll snapping:
-
-```css
-html {
-  scroll-snap-type: y proximity;
-  scroll-behavior: smooth;
-}
-```
-
-### Accessibility behavior
-
-- Under `prefers-reduced-motion: reduce`, both `scroll-snap-type` and `scroll-behavior: smooth` are disabled entirely, falling back to native browser scroll
-- Keyboard scroll (`Space`, `Page Down`, `Arrow keys`) works normally. The snap behavior only engages when the scroll naturally lands near a snap point
+`html { scroll-snap-type: y proximity; scroll-behavior: smooth; }` snaps near-alignments without trapping keyboard scroll (`Space`, `Page Down`, arrows keep working because the type is `proximity`, not `mandatory`). Under `prefers-reduced-motion: reduce`, both properties fall back to `auto` / `none`.
 
 ## WCAG success criteria
-
-The following WCAG 2.2 success criteria are relevant to this project:
 
 | Criterion | Level | Status | Notes |
 |-----------|-------|--------|-------|
